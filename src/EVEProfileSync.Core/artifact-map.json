@@ -1,0 +1,33 @@
+{
+  "version": "2026.1",
+  "mappings": [
+    {
+      "option": "WindowLayout",
+      "artifactKind": "ProfileFile",
+      "description": "Character-scoped UI layout and window state",
+      "fileNamePatterns": [
+        "core_char_*.dat"
+      ]
+    },
+    {
+      "option": "OverviewSettings",
+      "artifactKind": "OverviewExportPackage",
+      "description": "CCP-supported overview export assets prepared for manual in-game import",
+      "fileNamePatterns": [
+        "*.xml",
+        "*.yaml",
+        "*.yml",
+        "*.txt",
+        "*.json"
+      ]
+    },
+    {
+      "option": "NeocomColors",
+      "artifactKind": "ProfileFile",
+      "description": "Account-scoped UI state used for Neocom customization",
+      "fileNamePatterns": [
+        "core_user_*.dat"
+      ]
+    }
+  ]
+}

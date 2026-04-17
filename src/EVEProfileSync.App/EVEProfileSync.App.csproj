@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Platforms>AnyCPU</Platforms>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\EVEProfileSync.ico</ApplicationIcon>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EVEProfileSync.Core\EVEProfileSync.Core.csproj" />
+    <Content Include="..\EVEProfileSync.Core\artifact-map.json" Link="artifact-map.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
