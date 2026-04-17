@@ -7,6 +7,7 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 1. Download the latest installer: [EVEProfileSync-Setup.exe](https://github.com/PapaChop83/EVEProfileSync/releases/latest/download/EVEProfileSync-Setup.exe)
 2. Run the installer and follow the setup prompts.
 3. Launch `EVEProfileSync` from the Start Menu or desktop shortcut.
+4. Like it? Feel free to send PLEX to character Nicholai Thomasovich. :-D
 
 ![Sanitized EVEProfileSync screenshot](docs/images/eveprofilesync-sanitized.png)
 
