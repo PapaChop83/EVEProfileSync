@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a defect, regression, or unexpected sync behavior.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+      placeholder: The app crashes when I select a source profile...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps needed to reproduce the issue.
+      placeholder: |
+        1. Open the app
+        2. Select profile...
+        3. Click...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - UI Layout
+        - NEOCOM Colors
+        - Account Overview
+        - Export / Restore
+        - Installer
+        - Startup / Launch
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Windows version, app version, and whether you used the installer or portable build.
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Extra details
+      description: Screenshots, log text, or anything else helpful.

@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest an improvement or new capability for EVEProfileSync.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or workflow gap
+      description: What are you trying to do today, and what is missing?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior or UI you would like to see.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - UI Layout
+        - NEOCOM Colors
+        - Account Overview
+        - Export / Restore
+        - Installer / Release packaging
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional. Describe any workaround or alternate approach you've tried.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Optional. Add screenshots, examples, or EVE-specific context.

@@ -25,6 +25,10 @@ And a setup executable such as:
 
 - Tag releases using `v<major>.<minor>.<patch>`
 - Example: `v1.0.0`
+- Use semantic versioning:
+  - `patch` for fixes and packaging-only corrections
+  - `minor` for backward-compatible features and UI improvements
+  - `major` for breaking workflow or compatibility changes
 
 ## What the GitHub workflow does
 
@@ -41,6 +45,8 @@ On a version tag like `v1.0.0`, GitHub Actions additionally:
 6. Zips the publish output
 7. Uploads both artifacts as workflow artifacts
 8. Uploads both artifacts to the GitHub release page with generated release notes
+
+Generated release notes are categorized through `.github/release.yml`, so issue and pull request labels should be kept reasonably accurate.
 
 ## Suggested release checklist
 

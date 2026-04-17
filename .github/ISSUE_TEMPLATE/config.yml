@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Release and installer guidance
+    url: https://github.com/PapaChop83/EVEProfileSync/blob/main/docs/RELEASING.md
+    about: Check release packaging and installer notes before opening a packaging issue.

@@ -15,6 +15,7 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 - Auto-discovers EVE settings from `%LOCALAPPDATA%\CCP\EVE` or a manually selected folder
 - Shows local `settings_*` profiles for each detected server installation
 - Resolves character IDs to character names when public ESI lookups are available
+- Separates `UI Layout` and `NEOCOM Colors` so the scope of each action is clear
 - Lets you label local account IDs and inspect the last modified timestamp for each account-scoped file
 - Exports a portable backup archive to the app folder
 - Restores from a selected backup archive after showing which files will be overwritten
@@ -94,6 +95,10 @@ This repo includes a GitHub Actions workflow that:
 
 See [docs/RELEASING.md](docs/RELEASING.md) for the release checklist and tagging flow.
 
+## Contributing
+
+Contributions are welcome. For setup, commit conventions, and release expectations, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Project layout
 
 - `src/EVEProfileSync.Core`
@@ -109,3 +114,4 @@ See [docs/RELEASING.md](docs/RELEASING.md) for the release checklist and tagging
 
 - This is a Windows-only app.
 - Character names can be resolved from public ESI, but account IDs remain local-only and should be labeled manually.
+- The screenshot in this README uses made-up account names, account IDs, character names, and character IDs for public sharing.
