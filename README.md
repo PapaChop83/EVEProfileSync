@@ -103,4 +103,3 @@ See [docs/RELEASING.md](docs/RELEASING.md) for the release checklist and tagging
 
 - This is a Windows-only app.
 - Character names can be resolved from public ESI, but account IDs remain local-only and should be labeled manually.
-- The screenshot in this README uses made-up account names, account IDs, character names, and character IDs for public sharing.
