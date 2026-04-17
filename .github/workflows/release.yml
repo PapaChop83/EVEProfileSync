@@ -72,6 +72,12 @@ jobs:
           "/DMyAppVersion=${{ env.RELEASE_VERSION }}"
         shell: pwsh
 
+      - name: Create stable installer filename
+        run: |
+          $installer = Get-ChildItem .\artifacts\installer\EVEProfileSync-Setup-*.exe | Select-Object -First 1
+          Copy-Item $installer.FullName .\artifacts\installer\EVEProfileSync-Setup.exe -Force
+        shell: pwsh
+
       - name: Archive release
         run: Compress-Archive -Path .\artifacts\publish\win-x64\* -DestinationPath .\artifacts\EVEProfileSync-win-x64.zip -Force
         shell: pwsh
@@ -86,7 +92,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: EVEProfileSync-Setup
-          path: .\artifacts\installer\EVEProfileSync-Setup-*.exe
+          path: |
+            .\artifacts\installer\EVEProfileSync-Setup-*.exe
+            .\artifacts\installer\EVEProfileSync-Setup.exe
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2
@@ -94,4 +102,5 @@ jobs:
           files: |
             .\artifacts\EVEProfileSync-win-x64.zip
             .\artifacts\installer\EVEProfileSync-Setup-*.exe
+            .\artifacts\installer\EVEProfileSync-Setup.exe
           generate_release_notes: true

@@ -2,6 +2,12 @@
 
 EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI layout and NEOCOM color settings between local profiles, characters, and account-scoped settings files.
 
+## Install
+
+1. Download the latest installer: [EVEProfileSync-Setup.exe](https://github.com/PapaChop83/EVEProfileSync/releases/latest/download/EVEProfileSync-Setup.exe)
+2. Run the installer and follow the setup prompts.
+3. Launch `EVEProfileSync` from the Start Menu or desktop shortcut.
+
 ![Sanitized EVEProfileSync screenshot](docs/images/eveprofilesync-sanitized.png)
 
 ## What it does

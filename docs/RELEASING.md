@@ -19,6 +19,7 @@ Each tagged release should contain the portable app files:
 And a setup executable such as:
 
 - `EVEProfileSync-Setup-1.0.0.exe`
+- `EVEProfileSync-Setup.exe` for the stable latest-release download link used in the README
 
 ## Versioning
 
