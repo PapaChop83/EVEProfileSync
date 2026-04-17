@@ -9,7 +9,6 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 - Auto-discovers EVE settings from `%LOCALAPPDATA%\CCP\EVE` or a manually selected folder
 - Shows local `settings_*` profiles for each detected server installation
 - Resolves character IDs to character names when public ESI lookups are available
-- Separates `UI Layout` and `NEOCOM Colors` so the scope of each action is clear
 - Lets you label local account IDs and inspect the last modified timestamp for each account-scoped file
 - Exports a portable backup archive to the app folder
 - Restores from a selected backup archive after showing which files will be overwritten
