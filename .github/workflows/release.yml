@@ -39,6 +39,8 @@ jobs:
       contents: write
     env:
       CODE_SIGN_TIMESTAMP_URL: http://timestamp.digicert.com
+      CODE_SIGN_CERT_BASE64: ${{ secrets.CODE_SIGN_CERT_BASE64 }}
+      CODE_SIGN_CERT_PASSWORD: ${{ secrets.CODE_SIGN_CERT_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -58,12 +60,12 @@ jobs:
           -o .\artifacts\publish\win-x64
 
       - name: Prepare code-signing certificate
-        if: ${{ secrets.CODE_SIGN_CERT_BASE64 != '' && secrets.CODE_SIGN_CERT_PASSWORD != '' }}
+        if: ${{ env.CODE_SIGN_CERT_BASE64 != '' && env.CODE_SIGN_CERT_PASSWORD != '' }}
         run: |
           $certDir = Join-Path $PWD 'artifacts\signing'
           New-Item -ItemType Directory -Path $certDir -Force | Out-Null
           $certPath = Join-Path $certDir 'codesign.pfx'
-          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String("${{ secrets.CODE_SIGN_CERT_BASE64 }}"))
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:CODE_SIGN_CERT_BASE64))
           "CODE_SIGN_CERT_PATH=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         shell: pwsh
 
@@ -91,7 +93,7 @@ jobs:
               /td sha256 `
               /tr $env:CODE_SIGN_TIMESTAMP_URL `
               /f $env:CODE_SIGN_CERT_PATH `
-              /p "${{ secrets.CODE_SIGN_CERT_PASSWORD }}" `
+              /p $env:CODE_SIGN_CERT_PASSWORD `
               $target.FullName
           }
         shell: pwsh
@@ -129,7 +131,7 @@ jobs:
               /td sha256 `
               /tr $env:CODE_SIGN_TIMESTAMP_URL `
               /f $env:CODE_SIGN_CERT_PATH `
-              /p "${{ secrets.CODE_SIGN_CERT_PASSWORD }}" `
+              /p $env:CODE_SIGN_CERT_PASSWORD `
               $target.FullName
           }
         shell: pwsh
