@@ -165,7 +165,7 @@
                                       ItemsSource="{Binding Profiles}"
                                       DisplayMemberPath="DisplayName"
                                       SelectedItem="{Binding SelectedSourceProfile, Mode=TwoWay}"
-                                      SelectionChanged="OnProfileSelectionChanged" />
+                                      SelectionChanged="OnSourceProfileSelectionChanged" />
                         </StackPanel>
                     </Border>
 
@@ -257,7 +257,7 @@
                                           ItemsSource="{Binding WindowLayoutSources}"
                                           DisplayMemberPath="DisplayName"
                                           SelectedItem="{Binding SelectedWindowLayoutSource, Mode=TwoWay}"
-                                          SelectionChanged="OnProfileSelectionChanged" />
+                                          SelectionChanged="OnSelectionChanged" />
                                 <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
                                     <Button Width="90" Margin="0,0,8,0" Click="OnSelectCharacterTargetsClick">Select All</Button>
                                     <Button Width="90" Click="OnDeselectCharacterTargetsClick">Deselect All</Button>
@@ -305,7 +305,7 @@
                                           ItemsSource="{Binding NeocomSources}"
                                           DisplayMemberPath="DisplayName"
                                           SelectedItem="{Binding SelectedNeocomSource, Mode=TwoWay}"
-                                          SelectionChanged="OnProfileSelectionChanged" />
+                                          SelectionChanged="OnSelectionChanged" />
                                 <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
                                     <Button Width="90" Margin="0,0,8,0" Click="OnSelectAccountTargetsClick">Select All</Button>
                                     <Button Width="90" Click="OnDeselectAccountTargetsClick">Deselect All</Button>
