@@ -122,8 +122,9 @@ public partial class MainWindow : Window
         await _viewModel.RefreshPreviewAsync();
     }
 
-    private async void OnProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void OnSourceProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        await _viewModel.RefreshCharacterNamesForCurrentProfileAsync();
         await _viewModel.RefreshPreviewAsync();
     }
 
