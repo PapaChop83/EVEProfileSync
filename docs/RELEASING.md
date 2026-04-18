@@ -41,12 +41,35 @@ On pushes and pull requests, GitHub Actions:
 On a version tag like `v1.0.0`, GitHub Actions additionally:
 
 4. Publishes the WPF app for `win-x64`
-5. Builds an Inno Setup installer from the publish output
-6. Zips the publish output
-7. Uploads both artifacts as workflow artifacts
-8. Uploads both artifacts to the GitHub release page with generated release notes
+5. Optionally signs the published binaries when a code-signing certificate is configured
+6. Builds an Inno Setup installer from the publish output
+7. Optionally signs the installer when a code-signing certificate is configured
+8. Zips the publish output
+9. Uploads both artifacts as workflow artifacts
+10. Uploads both artifacts to the GitHub release page with generated release notes
 
 Generated release notes are categorized through `.github/release.yml`, so issue and pull request labels should be kept reasonably accurate.
+
+## Optional code signing
+
+To sign release builds in GitHub Actions, add these repository secrets:
+
+- `CODE_SIGN_CERT_BASE64`
+  Base64-encoded contents of your `.pfx` code-signing certificate
+- `CODE_SIGN_CERT_PASSWORD`
+  Password for the `.pfx`
+
+The workflow will automatically:
+
+- sign all `.exe` and `.dll` files in `artifacts\publish\win-x64`
+- sign both `EVEProfileSync-Setup-<version>.exe` and `EVEProfileSync-Setup.exe`
+- timestamp signatures with `http://timestamp.digicert.com`
+
+Notes:
+
+- A valid signature improves installer trust and shows your publisher name.
+- Microsoft Defender SmartScreen still uses reputation, so a standard certificate may continue to warn until reputation builds.
+- An EV code-signing certificate is the faster path if your goal is to reduce SmartScreen warnings for a new app.
 
 ## Suggested release checklist
 
