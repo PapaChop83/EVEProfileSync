@@ -37,6 +37,8 @@ jobs:
     runs-on: windows-latest
     permissions:
       contents: write
+    env:
+      CODE_SIGN_TIMESTAMP_URL: http://timestamp.digicert.com
 
     steps:
       - name: Checkout
@@ -54,6 +56,45 @@ jobs:
           -r win-x64
           --self-contained false
           -o .\artifacts\publish\win-x64
+
+      - name: Prepare code-signing certificate
+        if: ${{ secrets.CODE_SIGN_CERT_BASE64 != '' && secrets.CODE_SIGN_CERT_PASSWORD != '' }}
+        run: |
+          $certDir = Join-Path $PWD 'artifacts\signing'
+          New-Item -ItemType Directory -Path $certDir -Force | Out-Null
+          $certPath = Join-Path $certDir 'codesign.pfx'
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String("${{ secrets.CODE_SIGN_CERT_BASE64 }}"))
+          "CODE_SIGN_CERT_PATH=$certPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        shell: pwsh
+
+      - name: Resolve SignTool path
+        if: ${{ env.CODE_SIGN_CERT_PATH != '' }}
+        run: |
+          $signTool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe |
+            Where-Object { $_.FullName -like '*\x64\signtool.exe' } |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signTool) {
+            throw 'signtool.exe was not found on the GitHub Actions runner.'
+          }
+
+          "SIGNTOOL_PATH=$signTool" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        shell: pwsh
+
+      - name: Sign portable app binaries
+        if: ${{ env.CODE_SIGN_CERT_PATH != '' && env.SIGNTOOL_PATH != '' }}
+        run: |
+          $targets = Get-ChildItem .\artifacts\publish\win-x64 -Recurse -File -Include *.exe,*.dll
+          foreach ($target in $targets) {
+            & $env:SIGNTOOL_PATH sign `
+              /fd sha256 `
+              /td sha256 `
+              /tr $env:CODE_SIGN_TIMESTAMP_URL `
+              /f $env:CODE_SIGN_CERT_PATH `
+              /p "${{ secrets.CODE_SIGN_CERT_PASSWORD }}" `
+              $target.FullName
+          }
+        shell: pwsh
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
@@ -76,6 +117,21 @@ jobs:
         run: |
           $installer = Get-ChildItem .\artifacts\installer\EVEProfileSync-Setup-*.exe | Select-Object -First 1
           Copy-Item $installer.FullName .\artifacts\installer\EVEProfileSync-Setup.exe -Force
+        shell: pwsh
+
+      - name: Sign installer binaries
+        if: ${{ env.CODE_SIGN_CERT_PATH != '' && env.SIGNTOOL_PATH != '' }}
+        run: |
+          $targets = Get-ChildItem .\artifacts\installer -File -Filter EVEProfileSync-Setup*.exe
+          foreach ($target in $targets) {
+            & $env:SIGNTOOL_PATH sign `
+              /fd sha256 `
+              /td sha256 `
+              /tr $env:CODE_SIGN_TIMESTAMP_URL `
+              /f $env:CODE_SIGN_CERT_PATH `
+              /p "${{ secrets.CODE_SIGN_CERT_PASSWORD }}" `
+              $target.FullName
+          }
         shell: pwsh
 
       - name: Archive release
