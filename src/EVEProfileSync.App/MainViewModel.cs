@@ -138,10 +138,10 @@ public sealed class MainViewModel : ObservableObject
             Profiles.Add(new ProfileItemViewModel(profile));
         }
 
-        SelectedSourceProfile ??= Profiles.FirstOrDefault();
+        SelectedSourceProfile ??= GetPreferredSourceProfile();
         if (SelectedSourceProfile is not null && !Profiles.Contains(SelectedSourceProfile))
         {
-            SelectedSourceProfile = Profiles.FirstOrDefault();
+            SelectedSourceProfile = GetPreferredSourceProfile();
         }
 
         RebuildTargets();
@@ -156,6 +156,15 @@ public sealed class MainViewModel : ObservableObject
     public async Task RefreshCharacterNamesForCurrentProfileAsync()
     {
         await ResolveCharacterNamesAsync();
+    }
+
+    private ProfileItemViewModel? GetPreferredSourceProfile()
+    {
+        return Profiles
+            .OrderByDescending(item => item.Profile.CharacterFiles.Count)
+            .ThenByDescending(item => item.Profile.ServerName.Contains("tranquility", StringComparison.OrdinalIgnoreCase))
+            .ThenBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
     }
 
     public void BrowseForFolder()
@@ -279,14 +288,14 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task<string> ExportCurrentProfileAsync()
     {
-        if (SelectedSourceProfile is null)
+        if (SelectedSourceProfile is not null)
         {
-            throw new InvalidOperationException("Pick a source profile before exporting.");
+            var exportPath = await _backupService.ExportProfileAsync(SelectedSourceProfile.Profile, ExportFolderPath);
+            StatusText = $"Export created: {Path.GetFileName(exportPath)}";
+            return exportPath;
         }
 
-        var exportPath = await _backupService.ExportProfileAsync(SelectedSourceProfile.Profile, ExportFolderPath);
-        StatusText = $"Export created: {Path.GetFileName(exportPath)}";
-        return exportPath;
+        throw new InvalidOperationException("Pick a source profile before exporting.");
     }
 
     public async Task<RestorePreview> LoadRestorePreviewAsync(string backupFilePath)
