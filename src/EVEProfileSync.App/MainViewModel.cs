@@ -153,6 +153,11 @@ public sealed class MainViewModel : ObservableObject
             : $"Loaded {Profiles.Count} profile(s) from {_settingsRoot.RootPath}.";
     }
 
+    public async Task RefreshCharacterNamesForCurrentProfileAsync()
+    {
+        await ResolveCharacterNamesAsync();
+    }
+
     public void BrowseForFolder()
     {
         using var dialog = new FolderBrowserDialog
