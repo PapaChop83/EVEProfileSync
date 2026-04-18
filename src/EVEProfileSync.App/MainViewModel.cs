@@ -145,6 +145,8 @@ public sealed class MainViewModel : ObservableObject
         }
 
         RebuildTargets();
+        TraceNameResolution($"Profiles loaded: {string.Join(" | ", Profiles.Select(p => $"{p.DisplayName}:{p.Profile.CharacterFiles.Count} chars"))}");
+        TraceNameResolution($"Selected source profile: {SelectedSourceProfile?.DisplayName ?? "<none>"}");
         await ResolveCharacterNamesAsync();
         await RefreshPreviewAsync();
 
@@ -288,14 +290,14 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task<string> ExportCurrentProfileAsync()
     {
-        if (SelectedSourceProfile is not null)
+        if (SelectedSourceProfile is null)
         {
-            var exportPath = await _backupService.ExportProfileAsync(SelectedSourceProfile.Profile, ExportFolderPath);
-            StatusText = $"Export created: {Path.GetFileName(exportPath)}";
-            return exportPath;
+            throw new InvalidOperationException("Pick a source profile before exporting.");
         }
 
-        throw new InvalidOperationException("Pick a source profile before exporting.");
+        var exportPath = await _backupService.ExportProfileAsync(SelectedSourceProfile.Profile, ExportFolderPath);
+        StatusText = $"Export created: {Path.GetFileName(exportPath)}";
+        return exportPath;
     }
 
     public async Task<RestorePreview> LoadRestorePreviewAsync(string backupFilePath)
@@ -575,6 +577,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (SelectedSourceProfile is null)
         {
+            TraceNameResolution("ResolveCharacterNamesAsync skipped: no selected source profile.");
             return;
         }
 
@@ -584,6 +587,8 @@ public sealed class MainViewModel : ObservableObject
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        TraceNameResolution($"ResolveCharacterNamesAsync profile={SelectedSourceProfile.DisplayName} characterFiles={SelectedSourceProfile.Profile.CharacterFiles.Count} idsToResolve={ids.Length} ids=[{string.Join(", ", ids)}]");
+
         if (ids.Length == 0)
         {
             RefreshCharacterPresentation();
@@ -592,6 +597,20 @@ public sealed class MainViewModel : ObservableObject
 
         await _characterNameStore.ResolveNamesAsync(ids);
         RefreshCharacterPresentation();
+    }
+
+    private void TraceNameResolution(string message)
+    {
+        try
+        {
+            Directory.CreateDirectory(_applicationDataPath);
+            var path = Path.Combine(_applicationDataPath, "name-resolution.log");
+            File.AppendAllText(path, $"[{DateTimeOffset.Now:O}] {message}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Ignore diagnostics failures.
+        }
     }
 
     private void RefreshCharacterPresentation()
@@ -890,36 +909,96 @@ public sealed class CharacterNameStore
 
     public async Task ResolveNamesAsync(IEnumerable<string> characterIds)
     {
-        foreach (var characterId in characterIds)
+        var ids = characterIds
+            .Where(id => long.TryParse(id, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (ids.Length == 0)
         {
-            if (!long.TryParse(characterId, out var parsedId))
+            Save();
+            return;
+        }
+
+        var resolvedIds = await ResolveViaUniverseNamesAsync(ids).ConfigureAwait(false);
+        foreach (var characterId in ids.Where(id => !resolvedIds.Contains(id)))
+        {
+            await ResolveViaCharacterEndpointAsync(characterId).ConfigureAwait(false);
+        }
+
+        Save();
+    }
+
+    private async Task<HashSet<string>> ResolveViaUniverseNamesAsync(IReadOnlyList<string> characterIds)
+    {
+        var resolvedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var payload = characterIds.Select(long.Parse).ToArray();
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://esi.evetech.net/latest/universe/names/?datasource=tranquility")
             {
-                continue;
+                Content = JsonContent.Create(payload),
+            };
+            request.Headers.Add("User-Agent", "EVEProfileSync/1.0");
+
+            var response = await HttpClient.SendAsync(request).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return resolvedIds;
             }
 
-            try
+            var results = await response.Content.ReadFromJsonAsync<UniverseNameResponse[]>().ConfigureAwait(false)
+                ?? [];
+
+            foreach (var result in results)
             {
-                using var request = new HttpRequestMessage(HttpMethod.Get, $"https://esi.evetech.net/latest/characters/{parsedId}/?datasource=tranquility");
-                request.Headers.Add("User-Agent", "EVEProfileSync/1.0");
-                var response = await HttpClient.SendAsync(request).ConfigureAwait(false);
-                if (!response.IsSuccessStatusCode)
+                if (!string.Equals(result.Category, "character", StringComparison.OrdinalIgnoreCase) ||
+                    string.IsNullOrWhiteSpace(result.Name))
                 {
                     continue;
                 }
 
-                var payload = await response.Content.ReadFromJsonAsync<CharacterNameResponse>().ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(payload?.Name))
-                {
-                    _entries[characterId] = new CharacterNameEntry(payload.Name, DateTimeOffset.UtcNow.AddDays(7));
-                }
-            }
-            catch
-            {
-                // Keep cached or numeric fallback labels if ESI is unavailable.
+                var characterId = result.Id.ToString();
+                _entries[characterId] = new CharacterNameEntry(result.Name, DateTimeOffset.UtcNow.AddDays(7));
+                resolvedIds.Add(characterId);
             }
         }
+        catch
+        {
+            // Fall back to the character endpoint if bulk resolution is unavailable.
+        }
 
-        Save();
+        return resolvedIds;
+    }
+
+    private async Task ResolveViaCharacterEndpointAsync(string characterId)
+    {
+        if (!long.TryParse(characterId, out var parsedId))
+        {
+            return;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"https://esi.evetech.net/latest/characters/{parsedId}/?datasource=tranquility");
+            request.Headers.Add("User-Agent", "EVEProfileSync/1.0");
+            var response = await HttpClient.SendAsync(request).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<CharacterNameResponse>().ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(payload?.Name))
+            {
+                _entries[characterId] = new CharacterNameEntry(payload.Name, DateTimeOffset.UtcNow.AddDays(7));
+            }
+        }
+        catch
+        {
+            // Keep cached or numeric fallback labels if ESI is unavailable.
+        }
     }
 
     private void Save()
@@ -948,5 +1027,6 @@ public sealed class CharacterNameStore
     }
 
     private sealed record CharacterNameResponse(string Name);
+    private sealed record UniverseNameResponse(string Category, long Id, string Name);
     private sealed record CharacterNameEntry(string Name, DateTimeOffset ExpiresAtUtc);
 }
