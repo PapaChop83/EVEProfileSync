@@ -1,4 +1,6 @@
 using EVEProfileSync.Core;
+using System.IO.Compression;
+using System.Text.Json;
 using Xunit;
 
 namespace EVEProfileSync.Tests;
@@ -139,6 +141,33 @@ public sealed class CoreWorkflowTests
     }
 
     [Fact]
+    public void CharacterSettingsMerge_PreservesTargetChatRecords()
+    {
+        var sourceBytes = BuildBlueMarshalLikeSettings(
+            ("regularWindow", "source-layout"),
+            ("chatchannels", "source-private-channel"),
+            ("openWindows", "source chatchannel_player_source"),
+            ("marketWindow", "source-market"));
+        var targetBytes = BuildBlueMarshalLikeSettings(
+            ("regularWindow", "target-layout"),
+            ("chatchannels", "target-private-channel"),
+            ("openWindows", "target chatchannel_player_target"),
+            ("ChannelSettingsDlg_player_target", "target-dialog"));
+
+        var mergedBytes = CharacterSettingsMergeService.MergeLayoutPreservingTargetChat(sourceBytes, targetBytes);
+        var mergedText = System.Text.Encoding.ASCII.GetString(mergedBytes);
+
+        Assert.Contains("source-layout", mergedText);
+        Assert.Contains("source-market", mergedText);
+        Assert.Contains("target-private-channel", mergedText);
+        Assert.Contains("target chatchannel_player_target", mergedText);
+        Assert.Contains("target-dialog", mergedText);
+        Assert.DoesNotContain("source-private-channel", mergedText);
+        Assert.DoesNotContain("source chatchannel_player_source", mergedText);
+        Assert.Equal(5, BitConverter.ToInt32(mergedBytes, 1));
+    }
+
+    [Fact]
     public async Task ExportAndRestoreArchive_RoundTripsProfileFiles()
     {
         var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
@@ -156,12 +185,116 @@ public sealed class CoreWorkflowTests
         var originalContent = await File.ReadAllTextAsync(originalCharacterPath);
         await File.WriteAllTextAsync(originalCharacterPath, "changed");
 
-        var preview = await backupService.LoadRestorePreviewAsync(exportPath);
+        var preview = await backupService.LoadRestorePreviewAsync(exportPath, source);
         await backupService.RestoreExportAsync(preview);
         var restoredContent = await File.ReadAllTextAsync(originalCharacterPath);
 
         Assert.Equal(originalContent, restoredContent);
         Assert.Contains(preview.PathsToRestore, path => path.EndsWith("core_char_1001.dat"));
+    }
+
+    [Fact]
+    public async Task ExportArchive_DoesNotStoreAbsoluteProfilePaths()
+    {
+        var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
+        var eveRoot = Path.Combine(fixtureRoot, "CCP", "EVE");
+        var exportRoot = TestFileSystem.CreateTempDirectory();
+        var discovery = new SettingsDiscoveryService();
+        var settingsRoot = discovery.Discover(eveRoot);
+        var source = settingsRoot.Servers.Single().Profiles.Single(profile => profile.Name == "settings_Default");
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+
+        var exportPath = await backupService.ExportProfileAsync(source, exportRoot);
+        using var archive = ZipFile.OpenRead(exportPath);
+        var manifestEntry = archive.GetEntry("manifest.json")!;
+        await using var manifestStream = manifestEntry.Open();
+        var manifest = await JsonSerializer.DeserializeAsync<ExportBackupRecord>(manifestStream, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(manifest);
+        Assert.DoesNotContain(Path.DirectorySeparatorChar, manifest!.SourceProfilePath ?? string.Empty);
+        Assert.All(manifest.Files, file =>
+        {
+            Assert.Null(file.OriginalPath);
+            Assert.False(Path.IsPathRooted(file.RelativePath));
+        });
+    }
+
+    [Fact]
+    public async Task RestoreArchive_AllowsLegacyAbsolutePathsInsideSelectedProfile()
+    {
+        var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
+        var eveRoot = Path.Combine(fixtureRoot, "CCP", "EVE");
+        var discovery = new SettingsDiscoveryService();
+        var settingsRoot = discovery.Discover(eveRoot);
+        var source = settingsRoot.Servers.Single().Profiles.Single(profile => profile.Name == "settings_Default");
+        var characterPath = source.CharacterFiles.Single().FullPath;
+        var exportPath = CreateExportArchive(new ExportBackupFileRecord(characterPath, "files/0000_core_char_1001.dat", "core_char_1001.dat"), "restored");
+        await File.WriteAllTextAsync(characterPath, "changed");
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+
+        var preview = await backupService.LoadRestorePreviewAsync(exportPath, source);
+        await backupService.RestoreExportAsync(preview);
+
+        Assert.Equal("restored", await File.ReadAllTextAsync(characterPath));
+    }
+
+    [Fact]
+    public async Task RestoreArchive_RejectsLegacyAbsolutePathsOutsideSelectedProfile()
+    {
+        var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
+        var eveRoot = Path.Combine(fixtureRoot, "CCP", "EVE");
+        var discovery = new SettingsDiscoveryService();
+        var settingsRoot = discovery.Discover(eveRoot);
+        var source = settingsRoot.Servers.Single().Profiles.Single(profile => profile.Name == "settings_Default");
+        var outsidePath = Path.Combine(TestFileSystem.CreateTempDirectory(), "core_char_1001.dat");
+        var exportPath = CreateExportArchive(new ExportBackupFileRecord(outsidePath, "files/0000_core_char_1001.dat", "core_char_1001.dat"), "restored");
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => backupService.LoadRestorePreviewAsync(exportPath, source));
+    }
+
+    [Fact]
+    public async Task RestoreArchive_RejectsTraversalRestorePaths()
+    {
+        var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
+        var eveRoot = Path.Combine(fixtureRoot, "CCP", "EVE");
+        var discovery = new SettingsDiscoveryService();
+        var settingsRoot = discovery.Discover(eveRoot);
+        var source = settingsRoot.Servers.Single().Profiles.Single(profile => profile.Name == "settings_Default");
+        var exportPath = CreateExportArchive(new ExportBackupFileRecord(null, "files/0000_core_char_1001.dat", "core_char_1001.dat", "../core_char_1001.dat"), "restored");
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => backupService.LoadRestorePreviewAsync(exportPath, source));
+    }
+
+    [Fact]
+    public async Task RestoreArchive_RejectsUnsupportedSettingsFileNames()
+    {
+        var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
+        var eveRoot = Path.Combine(fixtureRoot, "CCP", "EVE");
+        var discovery = new SettingsDiscoveryService();
+        var settingsRoot = discovery.Discover(eveRoot);
+        var source = settingsRoot.Servers.Single().Profiles.Single(profile => profile.Name == "settings_Default");
+        var exportPath = CreateExportArchive(new ExportBackupFileRecord(null, "files/0000_evil.bat", "evil.bat", "evil.bat"), "bad");
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => backupService.LoadRestorePreviewAsync(exportPath, source));
+    }
+
+    [Fact]
+    public async Task RestoreArchive_RejectsOversizedEntries()
+    {
+        var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
+        var eveRoot = Path.Combine(fixtureRoot, "CCP", "EVE");
+        var discovery = new SettingsDiscoveryService();
+        var settingsRoot = discovery.Discover(eveRoot);
+        var source = settingsRoot.Servers.Single().Profiles.Single(profile => profile.Name == "settings_Default");
+        var exportPath = CreateExportArchive(
+            new ExportBackupFileRecord(null, "files/0000_core_char_1001.dat", "core_char_1001.dat", "core_char_1001.dat"),
+            new byte[(10 * 1024 * 1024) + 1]);
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => backupService.LoadRestorePreviewAsync(exportPath, source));
     }
 
     [Fact]
@@ -218,5 +351,46 @@ public sealed class CoreWorkflowTests
         }
 
         public bool IsEveRunning() => _isRunning;
+    }
+
+    private static string CreateExportArchive(ExportBackupFileRecord file, string content)
+    {
+        return CreateExportArchive(file, System.Text.Encoding.UTF8.GetBytes(content));
+    }
+
+    private static string CreateExportArchive(ExportBackupFileRecord file, byte[] content)
+    {
+        var exportPath = Path.Combine(TestFileSystem.CreateTempDirectory(), $"{Guid.NewGuid():N}.eveprofilesyncbackup");
+        using var archive = ZipFile.Open(exportPath, ZipArchiveMode.Create);
+        var fileEntry = archive.CreateEntry(file.ArchivePath);
+        using (var fileStream = fileEntry.Open())
+        {
+            fileStream.Write(content);
+        }
+
+        var manifest = new ExportBackupRecord(Guid.NewGuid().ToString("N"), DateTimeOffset.UtcNow, "test/profile", [file]);
+        var manifestEntry = archive.CreateEntry("manifest.json");
+        using var manifestStream = manifestEntry.Open();
+        JsonSerializer.Serialize(manifestStream, manifest, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return exportPath;
+    }
+
+    private static byte[] BuildBlueMarshalLikeSettings(params (string Key, string Value)[] records)
+    {
+        var result = new List<byte> { 0x7e };
+        result.AddRange(BitConverter.GetBytes(records.Length));
+
+        foreach (var (key, value) in records)
+        {
+            var keyBytes = System.Text.Encoding.ASCII.GetBytes(key);
+            var valueBytes = System.Text.Encoding.ASCII.GetBytes(value);
+            result.Add(0x13);
+            result.Add((byte)keyBytes.Length);
+            result.AddRange(keyBytes);
+            result.AddRange([0x2c, 0x2f, 0x08, 0, 0, 0, 0, 0, 0, 0, 0]);
+            result.AddRange(valueBytes);
+        }
+
+        return result.ToArray();
     }
 }

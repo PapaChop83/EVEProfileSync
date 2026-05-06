@@ -28,7 +28,7 @@ public interface IBackupService
 
     Task<string> ExportProfileAsync(ProfileFolder profile, string exportDirectory, CancellationToken cancellationToken = default);
 
-    Task<RestorePreview> LoadRestorePreviewAsync(string backupFilePath, CancellationToken cancellationToken = default);
+    Task<RestorePreview> LoadRestorePreviewAsync(string backupFilePath, ProfileFolder targetProfile, CancellationToken cancellationToken = default);
 
     Task RestoreAsync(RestorePlan plan, CancellationToken cancellationToken = default);
 

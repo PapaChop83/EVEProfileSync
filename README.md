@@ -17,6 +17,7 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 - Shows local `settings_*` profiles for each detected server installation
 - Resolves character IDs to character names when public ESI lookups are available
 - Separates `UI Layout` and `NEOCOM Colors` so the scope of each action is clear
+- Preserves target character chat channel state during UI layout sync to avoid copying unauthorized channel memberships
 - Lets you label local account IDs and inspect the last modified timestamp for each account-scoped file
 - Exports a portable backup archive to the app folder
 - Restores from a selected backup archive after showing which files will be overwritten
@@ -24,11 +25,22 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 ## Sync model
 
 - `UI Layout`
-  Copies validated `core_char_*.dat` content from one source character to checked target characters in the selected profile.
+  Copies validated character-scoped UI layout content from one source character to checked target characters in the selected profile while preserving each target character's chat channels and chat window state.
 - `NEOCOM Colors`
   Copies validated `core_user_*.dat` content from one source account to checked target accounts in the selected profile.
 - `Export / Restore`
   Creates or restores a portable `.eveprofilesyncbackup` archive for the current source profile.
+
+## Security audit changes
+
+Following a security audit, implemented following changes:
+
+- Backup exports now store restore paths relative to the selected EVE profile instead of embedding absolute local Windows paths.
+- Restore now targets the currently selected profile and rejects archive paths that are absolute, contain parent traversal, or resolve outside that profile.
+- Restore only accepts expected EVE settings files such as `core_char_<id>.dat` and `core_user_<id>.dat`.
+- Restore validates that every referenced archive entry exists and stays under a safe size limit before overwriting files.
+- Legacy backups with absolute paths are accepted only when those paths resolve inside the selected profile.
+- The restore confirmation now shows the full list of files that will be overwritten in a scrollable preview.
 
 ## Using the app
 
@@ -39,15 +51,87 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 5. In `NEOCOM Colors`, choose a source account and the target accounts to receive those colors.
 6. Use `Export` to create a portable backup archive before making broader changes, or `Restore` to browse to a backup file and preview overwrites.
 
+## Build requirements
+
+- Windows
+- .NET 8 SDK
+
+## Local development
+
+```powershell
+dotnet restore EVEProfileSync.sln
+dotnet build EVEProfileSync.sln
+dotnet test EVEProfileSync.sln
+dotnet run --project .\src\EVEProfileSync.App\EVEProfileSync.App.csproj
+```
+
+## Build a portable publish locally
+
+```powershell
+dotnet publish .\src\EVEProfileSync.App\EVEProfileSync.App.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained false `
+  -o .\artifacts\publish\win-x64
+```
+
+The publish output is a portable Windows folder that can be zipped and attached to a GitHub release.
+
+## Build the Inno Setup installer locally
+
+1. Publish the app:
+
+```powershell
+dotnet publish .\src\EVEProfileSync.App\EVEProfileSync.App.csproj `
+  -c Release `
+  -r win-x64 `
+  --self-contained false `
+  -o .\artifacts\publish\win-x64
+```
+
+2. Compile the installer with Inno Setup 6:
+
+```powershell
+iscc .\installer\EVEProfileSync.iss /DMyAppVersion=1.1.0
+```
+
+That produces an installer like `artifacts\installer\EVEProfileSync-Setup-1.1.0.exe`.
+
+## Public release workflow
+
+This repo includes a GitHub Actions workflow that:
+
+- restores, builds, and tests on pushes and pull requests
+- publishes a portable `win-x64` build on version tags like `v1.1.0`
+- builds an Inno Setup installer from that publish output
+- uploads both the portable zip and the installer as workflow artifacts and GitHub release assets
+
+See [docs/RELEASING.md](docs/RELEASING.md) for the release checklist and tagging flow.
+
+## Contributing
+
+Contributions are welcome. For setup, commit conventions, and release expectations, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Project layout
+
+- `src/EVEProfileSync.Core`
+  Core discovery, artifact mapping, backup export/restore, sync execution, and process-guard logic
+- `src/EVEProfileSync.App`
+  WPF desktop UI, app icon, account labels, and character-name resolution
+- `tests/EVEProfileSync.Tests`
+  Fixture-driven tests for discovery, sync planning, backup/export restore, and snapshot comparison
+- `docs/images`
+  Public documentation screenshots and other sanitized assets
+
 ## Notes
 
 - This is a Windows-only app.
 - Character names can be resolved from public ESI, but account IDs remain local-only and should be labeled manually.
 
-## Hot It Works
+## How It Works
 The main sync behavior is:
 
-- UI layout: copies core_char_*.dat from a chosen source character to selected target characters.
+- UI layout: merges character-scoped layout from a chosen source character into selected target characters while preserving each target character's chat channel state.
 - NEOCOM colors: copies core_user_*.dat from a chosen source account to selected target accounts.
 - Overview exports: finds local overview files in Documents\EVE\Overview and prepares copies for manual in-game import.
 - Before writing, it checks whether EVE is running and refuses to sync if the client process is open.

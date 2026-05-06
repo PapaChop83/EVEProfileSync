@@ -91,20 +91,31 @@ public sealed record BackupRecord(
 public sealed record RestorePlan(BackupRecord Backup);
 
 public sealed record ExportBackupFileRecord(
-    string OriginalPath,
+    string? OriginalPath,
     string ArchivePath,
-    string FileName);
+    string FileName,
+    string? RelativePath = null);
 
 public sealed record ExportBackupRecord(
     string Id,
     DateTimeOffset CreatedAt,
-    string SourceProfilePath,
+    string? SourceProfilePath,
     IReadOnlyList<ExportBackupFileRecord> Files);
 
 public sealed record RestorePreview(
     string BackupFilePath,
     ExportBackupRecord Backup,
-    IReadOnlyList<string> PathsToRestore);
+    IReadOnlyList<RestorePreviewFile> Files)
+{
+    public IReadOnlyList<string> PathsToRestore =>
+        Files.Select(file => file.DestinationPath).ToArray();
+}
+
+public sealed record RestorePreviewFile(
+    string RelativePath,
+    string ArchivePath,
+    string FileName,
+    string DestinationPath);
 
 public sealed record SyncResult(
     SyncPlan Plan,

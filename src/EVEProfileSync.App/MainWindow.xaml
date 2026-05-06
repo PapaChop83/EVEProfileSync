@@ -251,7 +251,7 @@
                                 <TextBlock Margin="0,4,0,8"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            TextWrapping="Wrap"
-                                           Text="UI layout changes apply from one character source to selected character targets only. The selected source character is excluded from targets." />
+                                           Text="UI layout changes apply from one character source to selected character targets only. Target chat channels and chat window state are preserved." />
                                 <TextBlock FontWeight="SemiBold" Text="Layout Source Character" />
                                 <ComboBox Margin="0,4,0,8"
                                           ItemsSource="{Binding WindowLayoutSources}"

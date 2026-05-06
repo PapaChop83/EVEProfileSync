@@ -75,17 +75,7 @@ public partial class MainWindow : Window
             }
 
             var preview = await _viewModel.LoadRestorePreviewAsync(dialog.FileName);
-            var previewLines = preview.PathsToRestore.Take(8).ToArray();
-            var extraCount = preview.PathsToRestore.Count - previewLines.Length;
-            var extraText = extraCount > 0 ? $"{Environment.NewLine}...and {extraCount} more file(s)." : string.Empty;
-            var confirmation = System.Windows.MessageBox.Show(
-                this,
-                $"Restore will overwrite these files:{Environment.NewLine}{Environment.NewLine}{string.Join(Environment.NewLine, previewLines)}{extraText}{Environment.NewLine}{Environment.NewLine}Continue?",
-                "Confirm Restore",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-
-            if (confirmation != MessageBoxResult.Yes)
+            if (!ShowRestoreConfirmation(preview.PathsToRestore))
             {
                 return;
             }
@@ -97,6 +87,57 @@ public partial class MainWindow : Window
         {
             System.Windows.MessageBox.Show(this, exception.Message, "Restore Failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private bool ShowRestoreConfirmation(IReadOnlyList<string> pathsToRestore)
+    {
+        var dialog = new Window
+        {
+            Owner = this,
+            Title = "Confirm Restore",
+            Width = 760,
+            Height = 460,
+            MinWidth = 620,
+            MinHeight = 360,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+
+        var layout = new DockPanel { Margin = new Thickness(16) };
+        var buttons = new StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+            Margin = new Thickness(0, 14, 0, 0),
+        };
+
+        var cancelButton = new System.Windows.Controls.Button { Content = "Cancel", Width = 92, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
+        var restoreButton = new System.Windows.Controls.Button { Content = "Restore", Width = 92, IsDefault = true };
+        cancelButton.Click += (_, _) => dialog.DialogResult = false;
+        restoreButton.Click += (_, _) => dialog.DialogResult = true;
+        buttons.Children.Add(cancelButton);
+        buttons.Children.Add(restoreButton);
+
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        layout.Children.Add(buttons);
+
+        var header = new TextBlock
+        {
+            Text = "Restore will overwrite every file listed below.",
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 10),
+        };
+        DockPanel.SetDock(header, Dock.Top);
+        layout.Children.Add(header);
+
+        var pathList = new System.Windows.Controls.ListBox
+        {
+            ItemsSource = pathsToRestore,
+            HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch,
+        };
+        layout.Children.Add(pathList);
+
+        dialog.Content = layout;
+        return dialog.ShowDialog() == true;
     }
 
     private async void OnExportClick(object sender, RoutedEventArgs e)

@@ -302,16 +302,26 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task<RestorePreview> LoadRestorePreviewAsync(string backupFilePath)
     {
+        if (SelectedSourceProfile is null)
+        {
+            throw new InvalidOperationException("Pick a target profile before restoring.");
+        }
+
         if (_processGuardService.IsEveRunning())
         {
             throw new InvalidOperationException("Close EVE Online before restoring a backup.");
         }
 
-        return await _backupService.LoadRestorePreviewAsync(backupFilePath);
+        return await _backupService.LoadRestorePreviewAsync(backupFilePath, SelectedSourceProfile.Profile);
     }
 
     public async Task RestoreFromExportAsync(RestorePreview preview)
     {
+        if (SelectedSourceProfile is null)
+        {
+            throw new InvalidOperationException("Pick a target profile before restoring.");
+        }
+
         if (_processGuardService.IsEveRunning())
         {
             throw new InvalidOperationException("Close EVE Online before restoring a backup.");
