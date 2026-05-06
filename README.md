@@ -43,3 +43,24 @@ EVEProfileSync is a lightweight Windows desktop app for syncing EVE Online UI la
 
 - This is a Windows-only app.
 - Character names can be resolved from public ESI, but account IDs remain local-only and should be labeled manually.
+
+## Hot It Works
+The main sync behavior is:
+
+- UI layout: copies core_char_*.dat from a chosen source character to selected target characters.
+- NEOCOM colors: copies core_user_*.dat from a chosen source account to selected target accounts.
+- Overview exports: finds local overview files in Documents\EVE\Overview and prepares copies for manual in-game import.
+- Before writing, it checks whether EVE is running and refuses to sync if the client process is open.
+- Before overwriting target files, it creates a local backup under the app’s data folder.
+- Export/restore uses a local .eveprofilesyncbackup zip-style archive containing the selected profile’s local files.
+
+ESI Interactions: There is no EVE SSO login, no OAuth, no scopes, no access token, and no refresh token handling in this codebase.
+
+The only ESI usage is public character-name lookup:
+- First it sends a POST to https://esi.evetech.net/latest/universe/names/?datasource=tranquility with a JSON array of numeric character IDs.
+- If that does not resolve everything, it falls back to GET https://esi.evetech.net/latest/characters/{characterId}/?datasource=tranquility.
+- It sets User-Agent: EVEProfileSync/1.0.
+- Returned character names are cached locally for 7 days in %APPDATA%\EVEProfileSync\character-names.json.
+
+Does Data Leave The User’s System? 
+Yes, but only in a narrow way: character IDs are sent to CCP’s public ESI service so the app can display character names instead of just numbers. Account labels and character-name cache files are stored locally under %APPDATA%\EVEProfileSync; exports are written locally under the app’s Exports folder.
