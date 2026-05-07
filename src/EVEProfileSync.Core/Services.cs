@@ -691,6 +691,7 @@ public static class CharacterSettingsMergeService
     private static readonly byte[] XmppChatChannelsMarker = "XmppChatChannels"u8.ToArray();
     private static readonly byte[] ChannelSettingsDialogMarker = "ChannelSettingsDlg"u8.ToArray();
     private static readonly byte[] ChatWindowStackMarker = "ChatWindowStack"u8.ToArray();
+    private static readonly string[] ChatWindowStateKeys = ["openWindows"];
 
     public static void CopyLayoutPreservingTargetChat(string sourcePath, string destinationPath)
     {
@@ -829,7 +830,8 @@ public static class CharacterSettingsMergeService
     private static bool IsChatRelatedRecord(byte[] bytes, SettingRecord record)
     {
         if (record.Key.Contains("chat", StringComparison.OrdinalIgnoreCase) ||
-            record.Key.Contains("channel", StringComparison.OrdinalIgnoreCase))
+            record.Key.Contains("channel", StringComparison.OrdinalIgnoreCase) ||
+            ChatWindowStateKeys.Contains(record.Key, StringComparer.OrdinalIgnoreCase))
         {
             return true;
         }

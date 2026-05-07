@@ -168,6 +168,27 @@ public sealed class CoreWorkflowTests
     }
 
     [Fact]
+    public void CharacterSettingsMerge_PreservesOpenWindowsWithoutChatMarkers()
+    {
+        var sourceBytes = BuildBlueMarshalLikeSettings(
+            ("regularWindow", "source-layout"),
+            ("openWindows", "source-inaccessible-window"),
+            ("marketWindow", "source-market"));
+        var targetBytes = BuildBlueMarshalLikeSettings(
+            ("regularWindow", "target-layout"),
+            ("openWindows", "target-accessible-window"));
+
+        var mergedBytes = CharacterSettingsMergeService.MergeLayoutPreservingTargetChat(sourceBytes, targetBytes);
+        var mergedText = System.Text.Encoding.ASCII.GetString(mergedBytes);
+
+        Assert.Contains("source-layout", mergedText);
+        Assert.Contains("source-market", mergedText);
+        Assert.Contains("target-accessible-window", mergedText);
+        Assert.DoesNotContain("source-inaccessible-window", mergedText);
+        Assert.Equal(3, BitConverter.ToInt32(mergedBytes, 1));
+    }
+
+    [Fact]
     public async Task ExportAndRestoreArchive_RoundTripsProfileFiles()
     {
         var fixtureRoot = TestFileSystem.CopyFixtureTree("CCP");
