@@ -92,19 +92,20 @@ dotnet publish .\src\EVEProfileSync.App\EVEProfileSync.App.csproj `
 2. Compile the installer with Inno Setup 6:
 
 ```powershell
-iscc .\installer\EVEProfileSync.iss /DMyAppVersion=1.1.0
+iscc .\installer\EVEProfileSync.iss /DMyAppVersion=1.1.1
 ```
 
-That produces an installer like `artifacts\installer\EVEProfileSync-Setup-1.1.0.exe`.
+That produces an installer like `artifacts\installer\EVEProfileSync-Setup-1.1.1.exe`.
 
 ## Public release workflow
 
 This repo includes a GitHub Actions workflow that:
 
 - restores, builds, and tests on pushes and pull requests
-- publishes a portable `win-x64` build on version tags like `v1.1.0`
+- publishes a portable `win-x64` build on version tags like `v1.1.1`
 - builds an Inno Setup installer from that publish output
 - uploads both the portable zip and the installer as workflow artifacts and GitHub release assets
+- keeps the stable README installer link current through `releases/latest/download/EVEProfileSync-Setup.exe`
 
 See [docs/RELEASING.md](docs/RELEASING.md) for the release checklist and tagging flow.
 

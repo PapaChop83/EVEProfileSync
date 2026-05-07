@@ -18,13 +18,13 @@ Each tagged release should contain the portable app files:
 
 And a setup executable such as:
 
-- `EVEProfileSync-Setup-1.1.0.exe`
+- `EVEProfileSync-Setup-1.1.1.exe`
 - `EVEProfileSync-Setup.exe` for the stable latest-release download link used in the README
 
 ## Versioning
 
 - Tag releases using `v<major>.<minor>.<patch>`
-- Example: `v1.1.0`
+- Example: `v1.1.1`
 - Use semantic versioning:
   - `patch` for fixes and packaging-only corrections
   - `minor` for backward-compatible features and UI improvements
@@ -38,7 +38,7 @@ On pushes and pull requests, GitHub Actions:
 2. Builds the solution in `Release`
 3. Runs the test suite
 
-On a version tag like `v1.1.0`, GitHub Actions additionally:
+On a version tag like `v1.1.1`, GitHub Actions additionally:
 
 4. Publishes the WPF app for `win-x64`
 5. Optionally signs the published binaries when a code-signing certificate is configured
@@ -86,7 +86,7 @@ dotnet publish .\src\EVEProfileSync.App\EVEProfileSync.App.csproj `
   -r win-x64 `
   --self-contained false `
   -o .\artifacts\publish\win-x64
-iscc .\installer\EVEProfileSync.iss /DMyAppVersion=1.1.0
+iscc .\installer\EVEProfileSync.iss /DMyAppVersion=1.1.1
 ```
 
 5. Smoke-test both the published `EVEProfileSync.App.exe` and the generated installer.
@@ -94,9 +94,12 @@ iscc .\installer\EVEProfileSync.iss /DMyAppVersion=1.1.0
 7. Create and push a tag:
 
 ```powershell
-git tag v1.1.0
-git push origin v1.1.0
+git tag v1.1.1
+git push origin v1.1.1
 ```
+
+8. Confirm the generated GitHub release contains `EVEProfileSync-Setup.exe`.
+9. Confirm the README installer link resolves to the new latest release asset.
 
 ## Repo hygiene for public release
 
