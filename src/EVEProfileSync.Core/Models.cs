@@ -73,7 +73,8 @@ public sealed record SyncPlan(
     IReadOnlyDictionary<SyncOption, string> SourceSelectionDescriptions,
     IReadOnlyList<SyncArtifact> Artifacts,
     string Summary,
-    bool RequiresManualOverviewImport);
+    bool RequiresManualOverviewImport,
+    bool PreserveTargetChatMembership = false);
 
 public sealed record BackupFileRecord(
     string OriginalPath,

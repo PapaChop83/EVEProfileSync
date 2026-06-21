@@ -121,7 +121,7 @@
                            Text="EVEProfileSync" />
                 <TextBlock Margin="0,6,0,0"
                            Foreground="#B3CAE4"
-                           Text="Sync UI layout and Neocom colors between EVE profiles with automatic backups." />
+                           Text="Sync UI layout and account UI settings between EVE profiles with automatic backups." />
                 <TextBlock Margin="0,10,0,0"
                            Foreground="#67E8F9"
                            Text="{Binding StatusText}" />
@@ -251,7 +251,15 @@
                                 <TextBlock Margin="0,4,0,8"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            TextWrapping="Wrap"
-                                           Text="UI layout changes apply from one character source to selected character targets only. Target chat channels and chat window state are preserved." />
+                                           Text="By default, UI layout sync copies the full source character settings file to selected character targets." />
+                                <CheckBox Margin="0,0,0,8"
+                                          IsChecked="{Binding PreserveTargetChatMembership, Mode=TwoWay}"
+                                          Click="OnSelectionChanged"
+                                          Content="Experimental: preserve target joined chat channels" />
+                                <TextBlock Margin="0,0,0,8"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="Leave this off for exact source matching. Turn it on only to keep target chat membership records while copying the rest of the source UI settings." />
                                 <TextBlock FontWeight="SemiBold" Text="Layout Source Character" />
                                 <ComboBox Margin="0,4,0,8"
                                           ItemsSource="{Binding WindowLayoutSources}"
@@ -288,7 +296,7 @@
                         <DockPanel LastChildFill="True">
                             <StackPanel DockPanel.Dock="Top">
                                 <DockPanel LastChildFill="False">
-                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="NEOCOM Colors" />
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="Account UI Settings" />
                                     <Border Margin="10,0,0,0"
                                             Padding="8,3"
                                             Background="#34153F"
@@ -299,8 +307,8 @@
                                 <TextBlock Margin="0,4,0,8"
                                            Foreground="{StaticResource MutedTextBrush}"
                                            TextWrapping="Wrap"
-                                           Text="NEOCOM colors are controlled at the account level, not character, so changes apply to all characters within an account." />
-                                <TextBlock FontWeight="SemiBold" Text="NEOCOM Source Account" />
+                                           Text="Account UI settings include NEOCOM appearance, icon display/order, and related account-scoped UI preferences. Changes apply to all characters within an account." />
+                                <TextBlock FontWeight="SemiBold" Text="Account UI Source Account" />
                                 <ComboBox Margin="0,4,0,8"
                                           ItemsSource="{Binding NeocomSources}"
                                           DisplayMemberPath="DisplayName"
@@ -315,7 +323,7 @@
                                 <Button DockPanel.Dock="Bottom"
                                         Margin="0,12,0,0"
                                         Padding="0,8"
-                                        Click="OnSyncNeocomClick">Sync Colors</Button>
+                                        Click="OnSyncNeocomClick">Sync Account UI Settings</Button>
                                 <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="260">
                                     <ItemsControl ItemsSource="{Binding AccountTargets}">
                                         <ItemsControl.ItemTemplate>

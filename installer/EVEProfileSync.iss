@@ -2,7 +2,7 @@
 #define MyAppPublisher "PapaChop83"
 #define MyAppExeName "EVEProfileSync.App.exe"
 #ifndef MyAppVersion
-  #define MyAppVersion "1.1.1"
+  #define MyAppVersion "2.0.0"
 #endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish\win-x64"

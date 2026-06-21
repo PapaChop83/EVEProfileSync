@@ -652,11 +652,12 @@ public sealed class SyncExecutor : ISyncExecutor
             cancellationToken.ThrowIfCancellationRequested();
             EnsureSafeWriteDestination(artifact.DestinationPath);
             Directory.CreateDirectory(Path.GetDirectoryName(artifact.DestinationPath)!);
-            if (artifact.Option == SyncOption.WindowLayout &&
+            if (plan.PreserveTargetChatMembership &&
                 artifact.Kind == ArtifactKind.ProfileFile &&
-                Path.GetFileName(artifact.SourcePath).StartsWith("core_char_", StringComparison.OrdinalIgnoreCase))
+                (Path.GetFileName(artifact.SourcePath).StartsWith("core_char_", StringComparison.OrdinalIgnoreCase) ||
+                 Path.GetFileName(artifact.SourcePath).StartsWith("core_user_", StringComparison.OrdinalIgnoreCase)))
             {
-                CharacterSettingsMergeService.CopyLayoutPreservingTargetChat(artifact.SourcePath, artifact.DestinationPath);
+                CharacterSettingsMergeService.CopyPreservingTargetChatMembership(artifact.SourcePath, artifact.DestinationPath);
             }
             else
             {
@@ -687,13 +688,9 @@ public sealed class SyncExecutor : ISyncExecutor
 public static class CharacterSettingsMergeService
 {
     private static readonly byte[] SettingRecordValueMarker = [0x2c, 0x2f, 0x08];
-    private static readonly byte[] ChatChannelMarker = "chatchannel"u8.ToArray();
-    private static readonly byte[] XmppChatChannelsMarker = "XmppChatChannels"u8.ToArray();
-    private static readonly byte[] ChannelSettingsDialogMarker = "ChannelSettingsDlg"u8.ToArray();
-    private static readonly byte[] ChatWindowStackMarker = "ChatWindowStack"u8.ToArray();
-    private static readonly string[] ChatWindowStateKeys = ["openWindows"];
+    private static readonly string[] ChatMembershipKeys = ["chatchannels", "chat_OldChannelsMigrated", "chatPlayerChannelsJoined"];
 
-    public static void CopyLayoutPreservingTargetChat(string sourcePath, string destinationPath)
+    public static void CopyPreservingTargetChatMembership(string sourcePath, string destinationPath)
     {
         var sourceBytes = File.ReadAllBytes(sourcePath);
         if (!File.Exists(destinationPath))
@@ -703,11 +700,21 @@ public static class CharacterSettingsMergeService
         }
 
         var targetBytes = File.ReadAllBytes(destinationPath);
-        var mergedBytes = MergeLayoutPreservingTargetChat(sourceBytes, targetBytes);
+        var mergedBytes = MergePreservingTargetChatMembership(sourceBytes, targetBytes);
         File.WriteAllBytes(destinationPath, mergedBytes);
     }
 
+    public static void CopyLayoutPreservingTargetChat(string sourcePath, string destinationPath)
+    {
+        CopyPreservingTargetChatMembership(sourcePath, destinationPath);
+    }
+
     public static byte[] MergeLayoutPreservingTargetChat(byte[] sourceBytes, byte[] targetBytes)
+    {
+        return MergePreservingTargetChatMembership(sourceBytes, targetBytes);
+    }
+
+    public static byte[] MergePreservingTargetChatMembership(byte[] sourceBytes, byte[] targetBytes)
     {
         if (!TryReadBlueMarshalRecordCount(sourceBytes, out var sourceRecordCount) ||
             !TryReadBlueMarshalRecordCount(targetBytes, out _))
@@ -717,7 +724,7 @@ public static class CharacterSettingsMergeService
 
         var sourceRecords = FindTopLevelSettingRecords(sourceBytes);
         var targetRecords = FindTopLevelSettingRecords(targetBytes)
-            .Where(record => IsChatRelatedRecord(targetBytes, record))
+            .Where(record => IsChatMembershipRecord(record))
             .GroupBy(record => record.Key, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase);
 
@@ -734,7 +741,7 @@ public static class CharacterSettingsMergeService
         foreach (var sourceRecord in sourceRecords)
         {
             seenKeys.Add(sourceRecord.Key);
-            if (IsChatRelatedRecord(sourceBytes, sourceRecord))
+            if (IsChatMembershipRecord(sourceRecord))
             {
                 if (targetRecords.TryGetValue(sourceRecord.Key, out var targetRecord))
                 {
@@ -827,20 +834,9 @@ public static class CharacterSettingsMergeService
         return true;
     }
 
-    private static bool IsChatRelatedRecord(byte[] bytes, SettingRecord record)
+    private static bool IsChatMembershipRecord(SettingRecord record)
     {
-        if (record.Key.Contains("chat", StringComparison.OrdinalIgnoreCase) ||
-            record.Key.Contains("channel", StringComparison.OrdinalIgnoreCase) ||
-            ChatWindowStateKeys.Contains(record.Key, StringComparer.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var span = bytes.AsSpan(record.Start, record.End - record.Start);
-        return ContainsOrdinalIgnoreCase(span, ChatChannelMarker) ||
-               ContainsOrdinal(span, XmppChatChannelsMarker) ||
-               ContainsOrdinal(span, ChannelSettingsDialogMarker) ||
-               ContainsOrdinal(span, ChatWindowStackMarker);
+        return ChatMembershipKeys.Contains(record.Key, StringComparer.OrdinalIgnoreCase);
     }
 
     private static bool TryReadBlueMarshalRecordCount(byte[] bytes, out int count)

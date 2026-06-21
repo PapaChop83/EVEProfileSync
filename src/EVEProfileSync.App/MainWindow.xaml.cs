@@ -223,6 +223,24 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (_viewModel.SelectedWindowLayoutSource is not null)
+            {
+                var modeText = _viewModel.PreserveTargetChatMembership
+                    ? "Experimental mode is ON: joined chat membership records from each target will be preserved, while other UI records are copied from the source."
+                    : "Exact copy mode is ON: selected target character settings files will be replaced with the source character settings file.";
+                var confirmation = System.Windows.MessageBox.Show(
+                    this,
+                    $"{modeText}{Environment.NewLine}{Environment.NewLine}Source: {_viewModel.SelectedWindowLayoutSource.DisplayName}{Environment.NewLine}{Environment.NewLine}Continue?",
+                    "Confirm UI Layout Sync",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+            }
+
             await _viewModel.SyncLayoutAsync();
             System.Windows.MessageBox.Show(this, _viewModel.StatusText, "UI Layout Sync Complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -236,12 +254,30 @@ public partial class MainWindow : Window
     {
         try
         {
+            if (_viewModel.SelectedNeocomSource is not null)
+            {
+                var modeText = _viewModel.PreserveTargetChatMembership
+                    ? "Experimental mode is ON: joined chat membership records from each target will be preserved, while other account UI records are copied from the source."
+                    : "Exact copy mode is ON: selected target account settings files will be replaced with the source account settings file.";
+                var confirmation = System.Windows.MessageBox.Show(
+                    this,
+                    $"{modeText}{Environment.NewLine}{Environment.NewLine}Source: {_viewModel.SelectedNeocomSource.DisplayName}{Environment.NewLine}{Environment.NewLine}This can overwrite UI transparency, icon display/order, overview colors, and related account preferences. Continue?",
+                    "Confirm Account UI Sync",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (confirmation != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+            }
+
             await _viewModel.SyncNeocomAsync();
-            System.Windows.MessageBox.Show(this, _viewModel.StatusText, "NEOCOM Sync Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show(this, _viewModel.StatusText, "Account UI Sync Complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception exception)
         {
-            System.Windows.MessageBox.Show(this, exception.Message, "NEOCOM Sync Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show(this, exception.Message, "Account UI Sync Failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }

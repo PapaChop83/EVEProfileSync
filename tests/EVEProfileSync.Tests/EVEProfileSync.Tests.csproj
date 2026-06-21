@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Platforms>AnyCPU</Platforms>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -23,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\EVEProfileSync.Core\EVEProfileSync.Core.csproj" />
+    <ProjectReference Include="..\..\src\EVEProfileSync.App\EVEProfileSync.App.csproj" />
     <Content Include="..\..\src\EVEProfileSync.Core\artifact-map.json" Link="artifact-map.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

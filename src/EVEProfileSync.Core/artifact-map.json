@@ -24,7 +24,7 @@
     {
       "option": "NeocomColors",
       "artifactKind": "ProfileFile",
-      "description": "Account-scoped UI state used for Neocom customization",
+      "description": "Account-scoped UI state, including NEOCOM appearance, icon order, and UI transparency",
       "fileNamePatterns": [
         "core_user_*.dat"
       ]

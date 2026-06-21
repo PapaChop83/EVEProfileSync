@@ -29,6 +29,7 @@ public sealed class MainViewModel : ObservableObject
     private SourceSettingsFileViewModel? _selectedWindowLayoutSource;
     private SourceSettingsFileViewModel? _selectedNeocomSource;
     private SettingsRoot? _settingsRoot;
+    private bool _preserveTargetChatMembership;
 
     public MainViewModel(
         ISettingsDiscoveryService discoveryService,
@@ -116,7 +117,19 @@ public sealed class MainViewModel : ObservableObject
     public SourceSettingsFileViewModel? SelectedNeocomSource
     {
         get => _selectedNeocomSource;
-        set => SetProperty(ref _selectedNeocomSource, value);
+        set
+        {
+            if (SetProperty(ref _selectedNeocomSource, value) && !_isRebuildingTargets)
+            {
+                RebuildAccountTargets();
+            }
+        }
+    }
+
+    public bool PreserveTargetChatMembership
+    {
+        get => _preserveTargetChatMembership;
+        set => SetProperty(ref _preserveTargetChatMembership, value);
     }
 
     public async Task InitializeAsync()
@@ -213,6 +226,18 @@ public sealed class MainViewModel : ObservableObject
             return Task.CompletedTask;
         }
 
+        if (selectedOptions.Contains(SyncOption.WindowLayout) && SelectedWindowLayoutSource is null)
+        {
+            PreviewItems.Add("Choose a UI Layout source character before syncing character-scoped layout settings.");
+            return Task.CompletedTask;
+        }
+
+        if (selectedOptions.Contains(SyncOption.NeocomColors) && SelectedNeocomSource is null)
+        {
+            PreviewItems.Add("Choose an Account UI source account before syncing account-scoped UI settings.");
+            return Task.CompletedTask;
+        }
+
         try
         {
             var plan = _mappingService.BuildPlan(
@@ -220,9 +245,15 @@ public sealed class MainViewModel : ObservableObject
                 selectedTargets,
                 selectedOptions,
                 GetSourceSelections(),
-                _settingsRoot?.OverviewFolderPath);
+                _settingsRoot?.OverviewFolderPath) with
+            {
+                PreserveTargetChatMembership = PreserveTargetChatMembership,
+            };
 
             PreviewItems.Add(plan.Summary);
+            PreviewItems.Add(PreserveTargetChatMembership
+                ? "Copy mode: experimental chat membership preserve. Target joined-chat records stay in place; other UI records come from the source."
+                : "Copy mode: exact file copy. Target character/account settings files are replaced with source files.");
             foreach (var sourceSelection in plan.SourceSelectionDescriptions)
             {
                 PreviewItems.Add($"Source {sourceSelection.Key}: {sourceSelection.Value}");
@@ -281,7 +312,7 @@ public sealed class MainViewModel : ObservableObject
         var targets = AccountTargets.Where(item => item.IsSelected).Select(item => item.Target).ToArray();
         if (targets.Length == 0)
         {
-            StatusText = "Select at least one NEOCOM account target.";
+            StatusText = "Select at least one Account UI target.";
             return;
         }
 
@@ -422,12 +453,25 @@ public sealed class MainViewModel : ObservableObject
             throw new InvalidOperationException("Pick a source profile before syncing.");
         }
 
+        if (selectedOptions.Contains(SyncOption.WindowLayout) && SelectedWindowLayoutSource is null)
+        {
+            throw new InvalidOperationException("Choose a UI Layout source character before syncing character-scoped layout settings.");
+        }
+
+        if (selectedOptions.Contains(SyncOption.NeocomColors) && SelectedNeocomSource is null)
+        {
+            throw new InvalidOperationException("Choose an Account UI source account before syncing account-scoped UI settings.");
+        }
+
         var plan = _mappingService.BuildPlan(
             SelectedSourceProfile.Profile,
             selectedTargets,
             selectedOptions,
             GetSourceSelections(),
-            _settingsRoot?.OverviewFolderPath);
+            _settingsRoot?.OverviewFolderPath) with
+        {
+            PreserveTargetChatMembership = PreserveTargetChatMembership,
+        };
 
         if (plan.Artifacts.Count == 0)
         {
@@ -443,54 +487,44 @@ public sealed class MainViewModel : ObservableObject
     private void RebuildTargets()
     {
         _isRebuildingTargets = true;
-        TargetProfiles.Clear();
-        CharacterTargets.Clear();
-        AccountTargets.Clear();
-        AccountOverviewItems.Clear();
-        WindowLayoutSources.Clear();
-        NeocomSources.Clear();
-        SelectedWindowLayoutSource = null;
-        SelectedNeocomSource = null;
-
-        if (SelectedSourceProfile is null)
+        try
         {
-            return;
-        }
+            TargetProfiles.Clear();
+            CharacterTargets.Clear();
+            AccountTargets.Clear();
+            AccountOverviewItems.Clear();
+            WindowLayoutSources.Clear();
+            NeocomSources.Clear();
+            SelectedWindowLayoutSource = null;
+            SelectedNeocomSource = null;
 
-        foreach (var characterFile in SelectedSourceProfile.Profile.CharacterFiles)
-        {
-            WindowLayoutSources.Add(new SourceSettingsFileViewModel(characterFile, BuildCharacterDisplayName(characterFile)));
-        }
-
-        foreach (var accountFile in SelectedSourceProfile.Profile.AccountFiles)
-        {
-            var label = _accountLabelStore.GetLabel(accountFile.AccountId);
-            AccountOverviewItems.Add(new AccountOverviewItemViewModel(accountFile, label));
-            var sourceViewModel = new SourceSettingsFileViewModel(
-                accountFile,
-                BuildAccountDisplayName(accountFile, label));
-            NeocomSources.Add(sourceViewModel);
-
-            var target = new SelectableSyncTargetViewModel(
-                new SyncTarget(
-                    $"account:{accountFile.AccountId}",
-                    BuildAccountDisplayName(accountFile, label),
-                    SyncOption.NeocomColors,
-                    accountFile),
-                label,
-                UpdateAccountLabel)
+            if (SelectedSourceProfile is null)
             {
-                IsSelected = true,
-            };
+                return;
+            }
 
-            TargetProfiles.Add(target);
-            AccountTargets.Add(target);
+            foreach (var characterFile in SelectedSourceProfile.Profile.CharacterFiles)
+            {
+                WindowLayoutSources.Add(new SourceSettingsFileViewModel(characterFile, BuildCharacterDisplayName(characterFile)));
+            }
+
+            foreach (var accountFile in SelectedSourceProfile.Profile.AccountFiles)
+            {
+                var label = _accountLabelStore.GetLabel(accountFile.AccountId);
+                AccountOverviewItems.Add(new AccountOverviewItemViewModel(accountFile, label));
+                var sourceViewModel = new SourceSettingsFileViewModel(
+                    accountFile,
+                    BuildAccountDisplayName(accountFile, label));
+                NeocomSources.Add(sourceViewModel);
+            }
+
+            RebuildCharacterTargets();
+            RebuildAccountTargets();
         }
-
-        SelectedWindowLayoutSource = WindowLayoutSources.FirstOrDefault();
-        SelectedNeocomSource = NeocomSources.FirstOrDefault();
-        RebuildCharacterTargets();
-        _isRebuildingTargets = false;
+        finally
+        {
+            _isRebuildingTargets = false;
+        }
     }
 
     private void RebuildCharacterTargets()
@@ -528,12 +562,56 @@ public sealed class MainViewModel : ObservableObject
                     SyncOption.WindowLayout,
                     characterFile))
             {
-                IsSelected = previousSelections.TryGetValue($"char:{characterFile.CharacterId}", out var wasSelected)
-                    ? wasSelected
-                    : true,
+                IsSelected = previousSelections.TryGetValue($"char:{characterFile.CharacterId}", out var wasSelected) && wasSelected,
             };
 
             CharacterTargets.Add(target);
+            TargetProfiles.Add(target);
+        }
+    }
+
+    private void RebuildAccountTargets()
+    {
+        var previousSelections = AccountTargets.ToDictionary(
+            target => target.Target.Id,
+            target => target.IsSelected,
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var target in AccountTargets.ToArray())
+        {
+            TargetProfiles.Remove(target);
+        }
+
+        AccountTargets.Clear();
+
+        if (SelectedSourceProfile is null)
+        {
+            return;
+        }
+
+        var excludedPath = SelectedNeocomSource?.File.FullPath;
+        foreach (var accountFile in SelectedSourceProfile.Profile.AccountFiles)
+        {
+            if (!string.IsNullOrWhiteSpace(excludedPath) &&
+                string.Equals(accountFile.FullPath, excludedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var label = _accountLabelStore.GetLabel(accountFile.AccountId);
+            var target = new SelectableSyncTargetViewModel(
+                new SyncTarget(
+                    $"account:{accountFile.AccountId}",
+                    BuildAccountDisplayName(accountFile, label),
+                    SyncOption.NeocomColors,
+                    accountFile),
+                label,
+                UpdateAccountLabel)
+            {
+                IsSelected = previousSelections.TryGetValue($"account:{accountFile.AccountId}", out var wasSelected) && wasSelected,
+            };
+
+            AccountTargets.Add(target);
             TargetProfiles.Add(target);
         }
     }

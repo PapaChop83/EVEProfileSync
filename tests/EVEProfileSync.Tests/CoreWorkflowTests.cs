@@ -141,34 +141,38 @@ public sealed class CoreWorkflowTests
     }
 
     [Fact]
-    public void CharacterSettingsMerge_PreservesTargetChatRecords()
+    public void CharacterSettingsMerge_PreservesOnlyTargetChatMembershipRecords()
     {
         var sourceBytes = BuildBlueMarshalLikeSettings(
             ("regularWindow", "source-layout"),
             ("chatchannels", "source-private-channel"),
+            ("chatPlayerChannelsJoined", "source-account-channel"),
             ("openWindows", "source chatchannel_player_source"),
             ("marketWindow", "source-market"));
         var targetBytes = BuildBlueMarshalLikeSettings(
             ("regularWindow", "target-layout"),
             ("chatchannels", "target-private-channel"),
+            ("chatPlayerChannelsJoined", "target-account-channel"),
             ("openWindows", "target chatchannel_player_target"),
             ("ChannelSettingsDlg_player_target", "target-dialog"));
 
-        var mergedBytes = CharacterSettingsMergeService.MergeLayoutPreservingTargetChat(sourceBytes, targetBytes);
+        var mergedBytes = CharacterSettingsMergeService.MergePreservingTargetChatMembership(sourceBytes, targetBytes);
         var mergedText = System.Text.Encoding.ASCII.GetString(mergedBytes);
 
         Assert.Contains("source-layout", mergedText);
         Assert.Contains("source-market", mergedText);
         Assert.Contains("target-private-channel", mergedText);
-        Assert.Contains("target chatchannel_player_target", mergedText);
-        Assert.Contains("target-dialog", mergedText);
+        Assert.Contains("target-account-channel", mergedText);
+        Assert.Contains("source chatchannel_player_source", mergedText);
         Assert.DoesNotContain("source-private-channel", mergedText);
-        Assert.DoesNotContain("source chatchannel_player_source", mergedText);
+        Assert.DoesNotContain("source-account-channel", mergedText);
+        Assert.DoesNotContain("target chatchannel_player_target", mergedText);
+        Assert.DoesNotContain("target-dialog", mergedText);
         Assert.Equal(5, BitConverter.ToInt32(mergedBytes, 1));
     }
 
     [Fact]
-    public void CharacterSettingsMerge_PreservesOpenWindowsWithoutChatMarkers()
+    public void CharacterSettingsMerge_CopiesSourceOpenWindows()
     {
         var sourceBytes = BuildBlueMarshalLikeSettings(
             ("regularWindow", "source-layout"),
@@ -178,14 +182,51 @@ public sealed class CoreWorkflowTests
             ("regularWindow", "target-layout"),
             ("openWindows", "target-accessible-window"));
 
-        var mergedBytes = CharacterSettingsMergeService.MergeLayoutPreservingTargetChat(sourceBytes, targetBytes);
+        var mergedBytes = CharacterSettingsMergeService.MergePreservingTargetChatMembership(sourceBytes, targetBytes);
         var mergedText = System.Text.Encoding.ASCII.GetString(mergedBytes);
 
         Assert.Contains("source-layout", mergedText);
         Assert.Contains("source-market", mergedText);
-        Assert.Contains("target-accessible-window", mergedText);
-        Assert.DoesNotContain("source-inaccessible-window", mergedText);
+        Assert.Contains("source-inaccessible-window", mergedText);
+        Assert.DoesNotContain("target-accessible-window", mergedText);
         Assert.Equal(3, BitConverter.ToInt32(mergedBytes, 1));
+    }
+
+    [Fact]
+    public async Task SyncExecutor_DefaultsToExactProfileFileCopy()
+    {
+        var (source, target, artifact) = CreateProfileFileArtifact(
+            BuildBlueMarshalLikeSettings(("chatchannels", "source-chat"), ("openWindows", "source-window")),
+            BuildBlueMarshalLikeSettings(("chatchannels", "target-chat"), ("openWindows", "target-window")));
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+        var executor = new SyncExecutor(backupService, new FakeProcessGuardService(isRunning: false));
+        var plan = CreateSingleArtifactPlan(source, target, artifact);
+
+        await executor.ExecuteAsync(plan);
+
+        Assert.Equal(await File.ReadAllBytesAsync(artifact.SourcePath), await File.ReadAllBytesAsync(artifact.DestinationPath));
+    }
+
+    [Fact]
+    public async Task SyncExecutor_UsesChatPreservingMergeOnlyWhenRequested()
+    {
+        var (source, target, artifact) = CreateProfileFileArtifact(
+            BuildBlueMarshalLikeSettings(("chatchannels", "source-chat"), ("openWindows", "source-window")),
+            BuildBlueMarshalLikeSettings(("chatchannels", "target-chat"), ("openWindows", "target-window")));
+        var backupService = new BackupService(TestFileSystem.CreateTempDirectory());
+        var executor = new SyncExecutor(backupService, new FakeProcessGuardService(isRunning: false));
+        var plan = CreateSingleArtifactPlan(source, target, artifact) with
+        {
+            PreserveTargetChatMembership = true,
+        };
+
+        await executor.ExecuteAsync(plan);
+
+        var syncedText = System.Text.Encoding.ASCII.GetString(await File.ReadAllBytesAsync(artifact.DestinationPath));
+        Assert.Contains("target-chat", syncedText);
+        Assert.Contains("source-window", syncedText);
+        Assert.DoesNotContain("source-chat", syncedText);
+        Assert.DoesNotContain("target-window", syncedText);
     }
 
     [Fact]
@@ -413,5 +454,41 @@ public sealed class CoreWorkflowTests
         }
 
         return result.ToArray();
+    }
+
+    private static (ProfileFolder Source, ProfileFolder Target, SyncArtifact Artifact) CreateProfileFileArtifact(byte[] sourceBytes, byte[] targetBytes)
+    {
+        var sourceRoot = TestFileSystem.CreateTempDirectory();
+        var targetRoot = TestFileSystem.CreateTempDirectory();
+        var sourcePath = Path.Combine(sourceRoot, "core_char_1001.dat");
+        var targetPath = Path.Combine(targetRoot, "core_char_2002.dat");
+        File.WriteAllBytes(sourcePath, sourceBytes);
+        File.WriteAllBytes(targetPath, targetBytes);
+
+        var sourceFile = new CharacterSettingsFile("1001", Path.GetFileName(sourcePath), sourcePath);
+        var targetFile = new CharacterSettingsFile("2002", Path.GetFileName(targetPath), targetPath);
+        var source = new ProfileFolder("c_tranquility", "settings_Source", sourceRoot, [sourceFile], []);
+        var target = new ProfileFolder("c_tranquility", "settings_Target", targetRoot, [targetFile], []);
+        var artifact = new SyncArtifact(
+            SyncOption.WindowLayout,
+            ArtifactKind.ProfileFile,
+            targetFile.FileName,
+            sourcePath,
+            targetPath,
+            "test");
+
+        return (source, target, artifact);
+    }
+
+    private static SyncPlan CreateSingleArtifactPlan(ProfileFolder source, ProfileFolder target, SyncArtifact artifact)
+    {
+        return new SyncPlan(
+            source,
+            [new SyncTarget("char:2002", "Character 2002", SyncOption.WindowLayout, target.CharacterFiles.Single())],
+            [SyncOption.WindowLayout],
+            new Dictionary<SyncOption, string>(),
+            [artifact],
+            "test",
+            RequiresManualOverviewImport: false);
     }
 }
